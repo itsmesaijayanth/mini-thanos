@@ -1,0 +1,75 @@
+# Each case: what the user says -> which tool should be called (null = no tool)
+# and which words must appear in the arguments (case-insensitive substring match).
+- say: play believer by imagine dragons on youtube
+  tool: play_youtube
+  args_contain: {query: believer}
+- say: put on some lofi hip hop
+  tool: play_youtube
+  args_contain: {query: lofi}
+- say: I want to watch the latest MKBHD video
+  tool: play_youtube
+  args_contain: {query: mkbhd}
+- say: play shape of you
+  tool: play_youtube
+  args_contain: {query: shape of you}
+- say: youtube despacito
+  tool: play_youtube
+  args_contain: {query: despacito}
+- say: can you play arijit singh songs
+  tool: play_youtube
+  args_contain: {query: arijit}
+- say: play a video on how to make pasta
+  tool: play_youtube
+  args_contain: {query: pasta}
+- say: play rain sounds for sleeping
+  tool: play_youtube
+  args_contain: {query: rain}
+- say: show me some python tutorials on youtube, I want to pick one
+  tool: open_youtube_search
+  args_contain: {query: python}
+- say: search youtube for cat videos
+  tool: open_youtube_search
+  args_contain: {query: cat}
+- say: what time is it
+  tool: get_current_time
+- say: what's the date today
+  tool: get_current_time
+- say: which day is it
+  tool: get_current_time
+- say: hello, how are you
+  tool: null
+- say: tell me a joke
+  tool: null
+- say: what's two plus two
+  tool: null
+# --- terminal ---
+- say: list the files in my downloads folder
+  tool: run_shell
+  args_contain: {command: Downloads}
+- say: what's in notes.txt
+  tool: run_shell
+  args_contain: {command: notes.txt}
+- say: how much free disk space do I have
+  tool: run_shell
+  args_contain: {command: df}
+- say: open the calculator app
+  tool: run_shell
+  args_contain: {command: calculator}
+- say: create a file todo.txt with buy milk
+  tool: write_file
+  args_contain: {path: todo.txt, content: milk}
+- say: save a note called ideas.txt saying build a robot
+  tool: write_file
+  args_contain: {path: ideas, content: robot}
+# --- web ---
+- say: who won the last F1 race
+  tool: web_search
+- say: search the web for the weather in Bangalore today
+  tool: web_search
+  args_contain: {query: bangalore}
+- say: read this page https://example.com
+  tool: fetch_webpage
+  args_contain: {url: example.com}
+- say: what does the article at en.wikipedia.org/wiki/Moon say
+  tool: fetch_webpage
+  args_contain: {url: wikipedia.org/wiki/moon}

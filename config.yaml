@@ -1,0 +1,29 @@
+# Thanos settings. Any field can be overridden with env var THANOS_<FIELD_UPPERCASE>.
+model: qwen3:8b            # alternatives: qwen2.5:7b, llama3.1:8b
+ollama_host: http://localhost:11434
+temperature: 0.0
+think: false               # qwen3 reasoning off = faster, more direct tool calls
+keep_alive: 30m            # keep model in memory between commands
+max_steps: 10              # max LLM round-trips per request (multi-step tasks need more)
+history_turns: 6           # past user/assistant turns kept for context
+max_reply_tokens: 400      # hard cap on tokens per model turn (stops runaway answers)
+num_ctx: 16384             # model context window (web pages + shell output need room)
+max_tool_output_chars: 6000  # tool output longer than this is trimmed before the model sees it
+
+workspace_dir: ~/Thanos    # default folder for shell commands and saved files
+shell_max_timeout: 120     # hard cap (seconds) for any shell command
+
+stt_model: mlx-community/whisper-small-mlx   # or mlx-community/whisper-large-v3-turbo
+stt_language: en
+sample_rate: 16000
+silence_seconds: 1.2       # stop recording after this much silence
+max_record_seconds: 15
+silence_threshold: 0.01    # RMS level considered "silence"
+
+tts: true                  # speak replies out loud (CLI: --mute to silence a run)
+tts_engine: kokoro         # kokoro (natural, local neural voice) | say (macOS built-in)
+tts_voice: af_heart        # kokoro voices: af_heart, af_bella, af_nicole, am_michael, am_adam,
+                           #   bf_emma, bm_george, ... (prefix: a=US b=UK, f=female m=male)
+tts_speed: 1.0
+tts_say_voice: null        # voice for the `say` fallback, e.g. "Samantha"
+tts_max_chars: 300         # longer replies are cut short; full text stays on screen
