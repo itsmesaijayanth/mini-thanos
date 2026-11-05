@@ -42,11 +42,16 @@ def blocked_reason(command: str) -> str | None:
     return None
 
 
-@tool(category="system")
+@tool(
+    category="system",
+    examples=["list files in my downloads folder", "how much disk space is free", "what's in notes.txt",
+              "run the command ls", "check my ip address"],
+)
 def run_shell(command: str, timeout_seconds: int = 30) -> ToolResult:
     """Run a bash command on the user's Mac and return its output.
-    Use it to list, read, search, copy, move or delete files, check system info, or open
-    apps and files (e.g. `open -a Safari`, `open report.pdf`). Starts in the workspace folder
+    Use it to list folders (ls), read text files like "what's in notes.txt" (cat), check disk
+    space (df -h), search,
+    copy, move or delete files, and other system info. Starts in the workspace folder
     ~/Thanos; use absolute or ~ paths for other places (e.g. `ls ~/Downloads`).
     Do NOT use it to write long text into files — use write_file for that.
 
@@ -92,7 +97,10 @@ def run_shell(command: str, timeout_seconds: int = 30) -> ToolResult:
     return ToolResult.fail(f"Exit code {code}.\n{body}", exit_code=code)
 
 
-@tool(category="system")
+@tool(
+    category="system",
+    examples=["create a file todo.txt with buy milk", "save this text to a file", "write notes to ideas.txt"],
+)
 def write_file(path: str, content: str, append: bool = False) -> ToolResult:
     """Save text to a file exactly as given (creates folders if needed).
     Use this whenever the user wants something saved, written, or noted into a file.

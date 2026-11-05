@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import subprocess
 import sys
 import time
 
@@ -18,7 +19,9 @@ from rich.console import Console
 from rich.logging import RichHandler
 from rich.markup import escape
 
+from thanos import services
 from thanos.agent import Agent, ToolEvent
+from thanos.agent.router import create_router
 from thanos.config import Settings
 from thanos.llm.ollama_client import OllamaClient
 from thanos.tools import registry
@@ -50,20 +53,34 @@ def main(argv: list[str] | None = None) -> int:
         console.print(f"[bold red]{e}[/]")
         return 1
 
-    agent = Agent(llm, registry, settings, confirm=_confirm, on_tool_event=_print_tool_event)
-    with console.status("[cyan]loading voice (first run downloads it)…"):
+    router = create_router(registry, settings)
+    agent = Agent(
+        llm, registry, settings, confirm=_confirm, on_tool_event=_print_tool_event, router=router
+    )
+    with console.status("[cyan]loading voice and tool index (first run downloads/builds them)…"):
         speaker = create_speaker(settings)
+        if router:
+            try:
+                router.warmup()
+            except Exception as e:
+                console.print(f"[yellow]Tool router off ({e}); run: ollama pull {settings.embed_model}[/]")
+    services.set_confirmer(_confirm)
+    services.set_notifier(lambda text: _notify(text, speaker))
+    routing = f"router top {settings.router_top_k}" if router else "router off"
     console.print(
         f"[dim]model={settings.model} · voice={speaker.name} · "
-        f"tools={', '.join(registry.names())}[/]"
+        f"{len(registry)} tools ({routing})[/]"
     )
 
     try:
         if args.once:
             _handle(agent, args.once, speaker)
             speaker.wait()
+            _wait_for_timers()
             return 0
         if args.text:
+            with console.status("[cyan]warming up the model…"):
+                agent.warm_cache()
             return _text_loop(agent, speaker)
         return _voice_loop(agent, settings, llm, speaker)
     finally:
@@ -108,6 +125,7 @@ def _voice_loop(agent: Agent, settings: Settings, llm: OllamaClient, speaker: Sp
     with console.status("[cyan]loading speech + language models (first run downloads them)…"):
         stt.warmup()
         llm.warmup()
+        agent.warm_cache()
         speaker.warmup()
 
     console.print("[dim]Press Enter and speak · or type a command · q to quit.[/]")
@@ -159,6 +177,30 @@ def _dispatch_input(agent: Agent, text: str, speaker: SpeakerT) -> bool:
         logging.getLogger(__name__).debug("agent error", exc_info=True)
         console.print(f"[red]Error: {e}[/]")
     return True
+
+
+def _notify(text: str, speaker: SpeakerT) -> None:
+    """Timer/alarm alert: chime + macOS notification + spoken text."""
+    console.print(f"\n[bold yellow]⏰ {escape(text)}[/]")
+    subprocess.Popen(["afplay", "/System/Library/Sounds/Glass.aiff"])
+    msg = text.replace("\\", "").replace('"', "'")
+    subprocess.Popen(["osascript", "-e", f'display notification "{msg}" with title "Thanos" sound name "Glass"'])
+    speaker.speak(text)
+
+
+def _wait_for_timers() -> None:
+    """In --once mode, keep running until pending timers/alarms have fired (Ctrl+C cancels)."""
+    from thanos.tools.timers import timers
+
+    if not timers.active():
+        return
+    console.print("[dim]Waiting for your timer… (Ctrl+C to cancel)[/]")
+    try:
+        while timers.active():
+            time.sleep(0.5)
+        time.sleep(4)  # let the alert speak
+    except KeyboardInterrupt:
+        timers.cancel("all")
 
 
 def _print_tool_event(ev: ToolEvent) -> None:

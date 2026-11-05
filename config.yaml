@@ -12,6 +12,16 @@ max_tool_output_chars: 6000  # tool output longer than this is trimmed before th
 
 workspace_dir: ~/Thanos    # default folder for shell commands and saved files
 shell_max_timeout: 120     # hard cap (seconds) for any shell command
+home_city: null            # e.g. Bangalore; null = detect from your IP address
+units: metric              # metric | imperial (weather)
+
+# Tool router: offer only the most relevant tools per request (local embedding model).
+# Off by default: on this Mac it measured 98% correct but ~8 s/request, because a changing
+# tool list defeats Ollama's prompt cache; all tools = 94% correct at ~2.6 s/request.
+router_enabled: false
+embed_model: nomic-embed-text   # ollama pull nomic-embed-text
+router_top_k: 8                 # tools picked per request
+always_tools: [run_shell, web_search, get_current_time]   # always offered
 
 stt_model: mlx-community/whisper-small-mlx   # or mlx-community/whisper-large-v3-turbo
 stt_language: en

@@ -41,11 +41,10 @@
 - say: tell me a joke
   tool: null
 - say: what's two plus two
-  tool: null
+  tool: [calculate]
 # --- terminal ---
 - say: list the files in my downloads folder
-  tool: run_shell
-  args_contain: {command: Downloads}
+  tool: [run_shell, recent_downloads]
 - say: what's in notes.txt
   tool: run_shell
   args_contain: {command: notes.txt}
@@ -53,8 +52,7 @@
   tool: run_shell
   args_contain: {command: df}
 - say: open the calculator app
-  tool: run_shell
-  args_contain: {command: calculator}
+  tool: [open_app, run_shell]
 - say: create a file todo.txt with buy milk
   tool: write_file
   args_contain: {path: todo.txt, content: milk}
@@ -73,3 +71,164 @@
 - say: what does the article at en.wikipedia.org/wiki/Moon say
   tool: fetch_webpage
   args_contain: {url: wikipedia.org/wiki/moon}
+# ===== iteration 5: daily tools (phrased differently from the routing examples) =====
+# --- mac controls ---
+- say: put the volume at 25
+  tool: set_volume
+  args_contain: {level: "25"}
+- say: it's too quiet, louder please
+  tool: [change_volume, set_volume]
+- say: silence my laptop
+  tool: mute
+- say: the screen is too bright
+  tool: change_brightness
+  args_contain: {direction: down}
+- say: launch the notes app
+  tool: [open_app, create_note]
+- say: open slack
+  tool: open_app
+  args_contain: {name: slack}
+- say: close whatsapp
+  tool: quit_app
+  args_contain: {name: whatsapp}
+- say: lock the computer
+  tool: lock_screen
+- say: switch on dark mode
+  tool: set_dark_mode
+- say: how's my battery
+  tool: battery_status
+- say: grab a screenshot
+  tool: take_screenshot
+- say: turn the display off
+  tool: [sleep_display, lock_screen]
+# --- timers & reminders ---
+- say: timer for 15 minutes
+  tool: set_timer
+  args_contain: {minutes: "15"}
+- say: start a 45 second timer
+  tool: set_timer
+  args_contain: {seconds: "45"}
+- say: wake me at 6:45 am
+  tool: set_alarm
+  args_contain: {time: "6:45"}
+- say: set an alarm for 5 pm
+  tool: set_alarm
+- say: how much time is left on the timer
+  tool: list_timers
+- say: cancel the timer
+  tool: cancel_timer
+- say: remind me to pay the electricity bill on monday
+  tool: add_reminder
+  args_contain: {text: electricity}
+- say: add renew passport to my reminders
+  tool: add_reminder
+  args_contain: {text: passport}
+# --- quick info ---
+- say: is it going to rain today
+  tool: get_weather
+- say: what's the temperature in Delhi
+  tool: get_weather
+  args_contain: {city: delhi}
+- say: give me the latest news
+  tool: get_news
+- say: any updates on the stock market
+  tool: [get_news, web_search]
+- say: who was Mahatma Gandhi
+  tool: [wikipedia_summary, web_search]
+- say: tell me about black holes
+  tool: [wikipedia_summary, web_search]
+- say: what's the meaning of ephemeral
+  tool: define_word
+  args_contain: {word: ephemeral}
+- say: define the word ubiquitous
+  tool: define_word
+- say: how many rupees is 20 euros
+  tool: convert_currency
+  args_contain: {from_currency: e, to_currency: r}
+- say: dollar to rupee rate
+  tool: convert_currency
+- say: what's 1234 times 56
+  tool: calculate
+- say: what is 15 percent of 880
+  tool: calculate
+- say: 70 kilograms in pounds
+  tool: convert_units
+- say: how many feet is 3 meters
+  tool: convert_units
+# --- music & media ---
+- say: play coldplay from my music library
+  tool: play_music
+  args_contain: {query: coldplay}
+- say: play my chill playlist in apple music
+  tool: play_music
+  args_contain: {query: chill}
+- say: skip to the next track
+  tool: music_control
+  args_contain: {action: next}
+- say: pause the song
+  tool: [music_control, youtube_control]
+- say: which song is playing
+  tool: now_playing
+- say: pause the youtube video
+  tool: youtube_control
+  args_contain: {action: pause}
+# --- notes, calendar, clipboard ---
+- say: create a note called packing list with charger and passport
+  tool: create_note
+  args_contain: {title: packing}
+- say: search my notes for wifi password
+  tool: [find_notes, read_note]
+- say: read my packing list note
+  tool: read_note
+  args_contain: {title: packing}
+- say: what meetings do I have today
+  tool: calendar_events
+- say: what's on my schedule tomorrow
+  tool: calendar_events
+  args_contain: {day: tomorrow}
+- say: schedule a call with Anil tomorrow at 4 pm
+  tool: add_calendar_event
+  args_contain: {title: anil}
+- say: what did I copy
+  tool: read_clipboard
+- say: copy hello world to the clipboard
+  tool: copy_to_clipboard
+  args_contain: {text: hello world}
+# --- files & pdfs ---
+- say: where is my passport scan
+  tool: find_files
+  args_contain: {query: passport}
+- say: find the invoice pdf
+  tool: find_files
+  args_contain: {query: invoice}
+- say: open my downloads folder
+  tool: [open_path, run_shell]
+- say: what are my most recent downloads
+  tool: recent_downloads
+- say: summarize the pdf valid_lossrun.pdf
+  tool: read_pdf
+  args_contain: {path: lossrun}
+# --- web shortcuts ---
+- say: go to linkedin
+  tool: open_website
+  args_contain: {name: linkedin}
+- say: open the github website
+  tool: open_website
+- say: google cheap flights to goa
+  tool: google_search
+  args_contain: {query: goa}
+- say: directions to the airport
+  tool: maps_directions
+  args_contain: {destination: airport}
+- say: navigate to MG Road
+  tool: maps_directions
+# --- messaging ---
+- say: text Ravi that I'm running late
+  tool: send_imessage
+  args_contain: {contact: ravi}
+- say: send mom an imessage saying happy birthday
+  tool: send_imessage
+  args_contain: {contact: mom}
+- say: whatsapp Priya see you at 6
+  tool: send_whatsapp
+  args_contain: {contact: priya}

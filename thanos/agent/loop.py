@@ -6,7 +6,7 @@ import json
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from thanos.agent.parsing import extract_text_tool_calls
 from thanos.agent.prompts import build_system_prompt
@@ -14,6 +14,9 @@ from thanos.config import Settings
 from thanos.llm.base import LLMClient, Message, ToolCall
 from thanos.tools.base import ToolResult, truncate_middle
 from thanos.tools.registry import ConfirmFn, ToolRegistry
+
+if TYPE_CHECKING:
+    from thanos.agent.router import ToolRouter
 
 log = logging.getLogger(__name__)
 
@@ -51,6 +54,7 @@ class Agent:
         confirm: ConfirmFn | None = None,
         on_tool_event: EventHook | None = None,
         system_prompt: str | None = None,
+        router: ToolRouter | None = None,
     ) -> None:
         self.llm = llm
         self.registry = registry
@@ -59,12 +63,33 @@ class Agent:
         self.on_tool_event = on_tool_event
         self.system_prompt = system_prompt or build_system_prompt(settings)
         self.history: list[Message] = []  # only user/assistant text turns, kept short
+        self.router = router
+        self.last_routed: list[str] = []  # tool names offered on the last request (debug/evals)
+        self._recent_tools: list[str] = []  # tools used last turn, kept for follow-ups
 
     def reset(self) -> None:
         self.history.clear()
+        self._recent_tools = []
+
+    def warm_cache(self) -> None:
+        """Process the system prompt + tool list once so Ollama caches it; later requests
+        with the same prefix only pay for the new words (big latency win with many tools)."""
+        if self.router is not None:
+            return  # the tool list changes per request, nothing stable to cache
+        tools = self.registry.schemas()
+        self.llm.chat([{"role": "system", "content": self.system_prompt}, {"role": "user", "content": "hi"}], tools)
+
+    def select_tools(self, user_text: str, categories: list[str] | None = None) -> list[dict[str, Any]]:
+        if categories is None and self.router is not None:
+            self.last_routed = self.router.select(user_text, recent=self._recent_tools)
+            log.debug("routed tools: %s", self.last_routed)
+            return self.registry.schemas_for(self.last_routed)
+        tools = self.registry.schemas(categories)
+        self.last_routed = [t["function"]["name"] for t in tools]
+        return tools
 
     def run(self, user_text: str, categories: list[str] | None = None) -> AgentReply:
-        tools = self.registry.schemas(categories)
+        tools = self.select_tools(user_text, categories)
         messages: list[Message] = [
             {"role": "system", "content": self.system_prompt},
             *self.history,
@@ -103,6 +128,7 @@ class Agent:
             final = _fallback_reply(events, hit_limit)
 
         self._remember(user_text, final)
+        self._recent_tools = list(dict.fromkeys(e.name for e in events if self.registry.get(e.name)))
         return AgentReply(text=final, tool_events=events)
 
     # --- internals ------------------------------------------------------------

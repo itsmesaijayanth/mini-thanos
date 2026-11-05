@@ -38,6 +38,12 @@ class Tool:
     category: str = "general"
     dangerous: bool = False
     direct: bool = False  # on success, reply with the tool's message (skip the extra LLM turn)
+    examples: tuple[str, ...] = ()  # sample user phrases; used by the router, never sent to the LLM
+
+    def routing_text(self) -> str:
+        """What the router embeds: name, description and example phrases."""
+        parts = [self.name.replace("_", " "), self.description, *self.examples]
+        return "\n".join(p for p in parts if p)
 
     def schema(self) -> dict[str, Any]:
         params = _clean_schema(self.args_model.model_json_schema())
@@ -78,8 +84,15 @@ class ToolRegistry:
     def names(self) -> list[str]:
         return sorted(self._tools)
 
+    def tools(self) -> list[Tool]:
+        return list(self._tools.values())
+
     def __len__(self) -> int:
         return len(self._tools)
+
+    def schemas_for(self, names: Iterable[str]) -> list[dict[str, Any]]:
+        """Schemas for the named tools (unknown names are skipped), in the given order."""
+        return [t.schema() for n in names if (t := self._tools.get(n))]
 
     def schemas(self, categories: Iterable[str] | None = None) -> list[dict[str, Any]]:
         """Tool schemas for the LLM, optionally limited to some categories."""
@@ -140,12 +153,15 @@ def tool(
     category: str = "general",
     dangerous: bool = False,
     direct: bool = False,
+    examples: Iterable[str] = (),
     registry: ToolRegistry = registry,
 ) -> Any:
     """Register a function as an LLM-callable tool.
 
     category:  group name, used to send only relevant tools to the model.
     dangerous: ask the user before running (shell, delete, write...).
+    examples:  sample user phrases ("set a timer for 5 minutes") that help the router
+               pick this tool; they are never sent to the LLM.
     direct:    on success the tool's message is the final reply (no extra LLM call).
                Use for fire-and-forget actions; leave False when the model must read
                the result (e.g. summarise a PDF).
@@ -170,6 +186,7 @@ def tool(
             category=category,
             dangerous=dangerous,
             direct=direct,
+            examples=tuple(examples),
         )
         registry.register(t)
         fn.__tool__ = t  # type: ignore[attr-defined]
