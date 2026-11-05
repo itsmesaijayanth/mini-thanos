@@ -47,13 +47,45 @@ mic → voice/recorder.py → voice/stt.py → agent/loop.py ⇄ llm/ollama_clie
   Kokoro model files are cached in `~/.cache/thanos/kokoro/` (auto-downloaded, ~350 MB).
 - `evals/` — utterance → expected tool/args cases and a runner that scores a model.
 
-## Current tools
+## Current tools (50; all deterministic, no API keys)
 | Module | Tools | Notes |
 |---|---|---|
-| `youtube.py` | `play_youtube`, `open_youtube_search` | yt-dlp search, opens default browser; `direct` |
-| `system.py` | `get_current_time` | `direct` |
-| `terminal.py` | `run_shell`, `write_file` | Runs **without confirmation** (user's choice). Starts in `workspace_dir` (`~/Thanos`). `BLOCKED_PATTERNS` hard-refuses sudo, `rm -rf /`/`~`, mkfs, dd to devices, shutdown, fork bombs, `curl \| sh`… — extend that list, don't remove it. `write_file` remaps Linux-style `/home/...` paths. |
-| `web.py` | `web_search`, `fetch_webpage` | DuckDuckGo (no key); trafilatura main-text extraction; output trimmed to `max_tool_output_chars` |
+| `youtube.py` | `play_youtube`, `open_youtube_search` | yt-dlp search; default for "play X" |
+| `system.py` | `get_current_time` | |
+| `terminal.py` | `run_shell`, `write_file` | Runs **without confirmation** (user's choice) in `workspace_dir` (`~/Thanos`). `BLOCKED_PATTERNS` hard-refuses sudo, `rm -rf /`/`~`, mkfs, dd to devices, shutdown, fork bombs, `curl \| sh`… — extend, don't remove. |
+| `web.py` | `web_search`, `fetch_webpage` | DuckDuckGo + trafilatura |
+| `macos.py` | volume (`set_volume`, `change_volume`, `mute`), `change_brightness`, `open_app`, `quit_app`, `lock_screen`, `sleep_display`, `set_dark_mode`, `battery_status`, `take_screenshot` | osascript / pmset / screencapture. Brightness & lock need Accessibility permission |
+| `timers.py` | `set_timer`, `set_alarm`, `list_timers`, `cancel_timer`, `add_reminder` | Timers/alarms are in-process (`threading.Timer` → `services.notify`: chime + notification + speech) and die when Thanos exits; `add_reminder` goes to the Reminders app (persists) |
+| `info.py` | `get_weather`, `get_news`, `wikipedia_summary`, `define_word`, `convert_currency`, `calculate`, `convert_units` | Open-Meteo (+ ip-api for home city, or `home_city`), Google News RSS, Wikipedia REST (needs descriptive User-Agent), dictionaryapi.dev, Frankfurter, safe AST calculator (never `eval`), pint |
+| `media.py` | `play_music`, `music_control`, `now_playing`, `youtube_control` | Music app = **your library only** (Apple Music streaming isn't scriptable); status/pause never launch Music. `youtube_control` runs JS in a Brave/Safari YouTube tab — needs "Allow JavaScript from Apple Events" once |
+| `apple_apps.py` | `create_note`, `find_notes`, `read_note`, `calendar_events`, `add_calendar_event`, `read_clipboard`, `copy_to_clipboard` | AppleScript; dates built from parts via `_osa.applescript_date` (locale-proof). Calendar query doesn't expand recurring events |
+| `files.py` | `find_files`, `open_path`, `recent_downloads`, `read_pdf` | Spotlight (`mdfind`) in ~, skips code/dev dirs, documents first; pypdf |
+| `websites.py` | `open_website`, `google_search`, `maps_directions` | Known-site table, else DuckDuckGo `!ducky` |
+| `messaging.py` | `send_imessage`, `send_whatsapp` | Contact lookup in Contacts; **always** `services.confirm(...)` showing exact person/number/text; WhatsApp only pre-fills (user presses Send) |
+
+Shared helpers (underscore = not auto-discovered): `_osa.py` (AppleScript runner, friendly
+permission errors, quoting, dates), `_timeparse.py` ("in 20 minutes", "7:30 pm", "tomorrow at 9" —
+times are parsed in Python, never by the LLM). `thanos/services.py`: `notify()` and `confirm()`
+that tools call; the CLI installs real handlers (tests use fakes; no handler = confirm says no).
+
+**macOS permissions** (one-time "Allow" pop-ups for the app running Thanos): Automation for
+Notes, Calendar, Reminders, Music, Messages, Contacts, System Events; Accessibility for
+brightness/lock keystrokes.
+
+## Tool router (`thanos/agent/router.py`)
+Embeds each tool's `routing_text()` (name + docstring + `examples=[...]`) with Ollama
+`nomic-embed-text` (cached in `~/.cache/thanos/tool_embeddings.json`, re-embedded only when the
+text changes) and offers the model the top `router_top_k` tools + `always_tools` + tools used last
+turn, in a stable order. Falls back to all tools if embedding fails. Tune with `examples=` on
+`@tool`, `router_top_k`, `always_tools`; check with `evals/run_evals.py` (reports router recall).
+`--no-router` in the evals offers all tools.
+
+**Off by default** (`router_enabled: false`). Measured 2026-11-05 on M4/16 GB, qwen3:8b, 87 evals:
+router 98% correct but ~8 s/request; all 50 tools 95% at ~2.7 s/request. Ollama caches the prompt
+prefix (system prompt + tool list): a fixed tool list is read once (~33 s for ~4.5k tokens at ~156
+tok/s), after which requests only pay for new tokens (generation ~18 tok/s). A per-request tool list
+breaks that cache. The CLI calls `Agent.warm_cache()` at startup so the first command is fast.
+qwen3:4b was tried and was *slower* (~9-26 s/request: it kept reasoning).
 
 ## Agent safeguards (thanos/agent/loop.py)
 - Up to `max_steps` (10) LLM rounds; on exhaustion it reports what was completed.
@@ -73,9 +105,12 @@ mic → voice/recorder.py → voice/stt.py → agent/loop.py ⇄ llm/ollama_clie
 4. Return `ToolResult.success(...)` / `ToolResult.fail(...)`. Don't raise for expected failures
    (the registry catches exceptions anyway, but explicit messages help the model).
 5. Keep tools deterministic — no LLM calls inside tools.
-6. Anything destructive, shell-running, or file-writing → `@tool(dangerous=True)` (asks the user).
+6. Anything destructive, shell-running, or file-writing → `@tool(dangerous=True)` (asks the user);
+   if the prompt must show resolved details (e.g. the contact's number), call `services.confirm()`
+   inside the tool instead.
 7. Add a test in `tests/` with external calls (subprocess, network) mocked, and 2–3 cases in
    `evals/tool_calls.yaml`.
+8. Add `examples=[...]` (3-5 natural phrasings) so the router can find the tool.
 
 ## Conventions
 - No hardcoded model names/paths/hosts outside `config.py`.
@@ -89,4 +124,5 @@ mic → voice/recorder.py → voice/stt.py → agent/loop.py ⇄ llm/ollama_clie
 - [x] Iteration 1: voice→text, Ollama setup, tool-calling core, YouTube playback
 - [x] Iteration 2: terminal (`run_shell`, `write_file`) + web (`web_search`, `fetch_webpage`)
 - [x] Iteration 3: spoken replies (Kokoro neural voice, barge-in, speech-friendly text)
-- [ ] Spotify control · PDF read/summarize · wake word · tool routing
+- [x] Iteration 5: 43 daily tools (Mac, timers, info, media, notes/calendar, files/PDF, web, messaging) + embedding router
+- [ ] Spotify control · wake word

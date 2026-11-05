@@ -39,6 +39,14 @@ class Settings(BaseSettings):
     # Tools
     workspace_dir: Path = Path("~/Thanos")
     shell_max_timeout: int = 120
+    home_city: str | None = None  # for weather; None = detect from IP
+    units: Literal["metric", "imperial"] = "metric"
+
+    # Tool router: send the model only the tools relevant to each request
+    router_enabled: bool = False  # measured: router 98%/8.1s vs all tools 94%/2.6s (prompt cache)
+    embed_model: str = "nomic-embed-text"
+    router_top_k: int = 8
+    always_tools: list[str] = ["run_shell", "web_search", "get_current_time"]
 
     # Speech-to-text / recording
     stt_model: str = "mlx-community/whisper-small-mlx"

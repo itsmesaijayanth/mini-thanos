@@ -42,10 +42,16 @@ def _open(url: str) -> bool:
     return webbrowser.open(url, new=2)
 
 
-@tool(category="media", direct=True)
+@tool(
+    category="media",
+    direct=True,
+    examples=["play believer on youtube", "put on some lofi music", "watch the latest MKBHD video",
+              "play shape of you"],
+)
 def play_youtube(query: str) -> ToolResult:
-    """Play the best matching YouTube video right away in the browser.
-    Use when the user says play, watch, or put on a song or video.
+    """Play the best matching YouTube video right away in the browser. This is the DEFAULT for
+    "play/watch/put on <any song, artist, channel, video, sounds>" unless Apple Music is
+    mentioned. "Watch the latest <creator> video" -> play_youtube, not web_search.
     If they say "search YouTube for ..." or want to see options, use open_youtube_search.
 
     Args:
@@ -73,7 +79,11 @@ def play_youtube(query: str) -> ToolResult:
     return ToolResult.success(f"Playing '{top['title']}' on YouTube.", **top)
 
 
-@tool(category="media", direct=True)
+@tool(
+    category="media",
+    direct=True,
+    examples=["search youtube for cat videos", "show me python tutorials on youtube"],
+)
 def open_youtube_search(query: str) -> ToolResult:
     """Open the YouTube search results page so the user can browse (nothing auto-plays).
     Use when the user says "search YouTube for ...", "find/show ... on YouTube", or wants

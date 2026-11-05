@@ -41,7 +41,11 @@ def extract_text(html: str, url: str) -> tuple[str, str]:
     return title, text.strip()
 
 
-@tool(category="web")
+@tool(
+    category="web",
+    examples=["who won the last F1 race", "search the web for the latest iPhone price",
+              "look up when the next eclipse is"],
+)
 def web_search(query: str, max_results: int = 5) -> ToolResult:
     """Search the web and get back titles, links and short snippets.
     Use for current events, facts you are unsure about, or to find pages to read.
@@ -62,7 +66,10 @@ def web_search(query: str, max_results: int = 5) -> ToolResult:
     return ToolResult.success("\n".join(lines))  # results already in message; no dup in data
 
 
-@tool(category="web")
+@tool(
+    category="web",
+    examples=["read this page https://example.com", "what does this article say"],
+)
 def fetch_webpage(url: str) -> ToolResult:
     """Open a web page and return its main readable text (no ads/menus).
     Use after web_search, or when the user gives a link.
